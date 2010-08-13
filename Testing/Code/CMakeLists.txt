@@ -1,4 +1,10 @@
-SUBDIRS( Numerics Common BasicFilters Algorithms IO SpatialObject )
+# SUBDIRS( Numerics Common BasicFilters Algorithms IO SpatialObject )
+SUBDIRS( Common )
+
+# An option to build/run the long tests
+option ( RUN_LONG_TESTS "Run long tests.  Some tests have been identified as long running, should these be run?" OFF )
+
+include ( TestHarness.cmake )
 
 IF(ITK_USE_PATENTED)
   SUBDIRS(Patented)

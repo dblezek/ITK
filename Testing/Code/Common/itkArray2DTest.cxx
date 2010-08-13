@@ -21,32 +21,36 @@
 #include <iostream>
 
 #include "itkArray2D.h"
+#include "itkTestHarness.h"
 
+typedef itk::Array2D< double > ArrayType;
+typedef vnl_matrix<double> VnlMatrixType;
+const unsigned int rows = 3;
+const unsigned int cols = 4;
+const double tolerance = 1e-6;
 
-int itkArray2DTest(int, char* [] )
-{
-  typedef itk::Array2D< double > ArrayType;
-
-  typedef vnl_matrix<double> VnlMatrixType;
-  
-  const unsigned int rows = 3;
-  const unsigned int cols = 4;
-  
-  ArrayType a( rows, cols);
-  VnlMatrixType vm( rows, cols ); 
-  
-  for( unsigned int r=0; r<rows; r++)
-    {
-    for( unsigned int c=0; c<cols; c++)
+class Array2D : public testing::Test {
+public:
+  virtual void SetUp()
+  {
+    a = ArrayType ( rows, cols );
+    vm = VnlMatrixType ( rows, cols );
+    for( unsigned int r=0; r<rows; r++)
       {
-      const double value = static_cast<double>( r + c );
-      a(r,c)  = value;
-      vm(r,c) = value;
+        for( unsigned int c=0; c<cols; c++)
+          {
+            const double value = static_cast<double>( r + c );
+            a(r,c)  = value;
+            vm(r,c) = value;
+          }
       }
-    }
+  }
+  ArrayType a;
+  VnlMatrixType vm;
+};
 
-  const double tolerance = 1e-6;
-
+TEST_F(Array2D,Copy)
+{
   // test copy constructor
   ArrayType b( a );
 
@@ -54,16 +58,13 @@ int itkArray2DTest(int, char* [] )
     {
     for( unsigned int c=0; c<cols; c++)
       {
-      double diff = a(r,c) - b(r,c);
-      diff = (diff > 0.0 ) ? diff : -diff; // take abs value
-      if( diff > tolerance )
-        {
-        std::cerr << "Error in copy constructor " << std::endl;
-        return EXIT_FAILURE;
-        }
+        EXPECT_NEAR ( a(r,c), b(r,c), tolerance );
       }
     }
+}
 
+TEST_F(Array2D,ConstructionFromVNL)
+{
   // test construction from vnl_matrix
   ArrayType d( vm );
 
@@ -71,16 +72,13 @@ int itkArray2DTest(int, char* [] )
     {
     for( unsigned int c=0; c<cols; c++)
       {
-      double diff = d(r,c) - vm(r,c);
-      diff = (diff > 0.0 ) ? diff : -diff; // take abs value
-      if(  diff  > tolerance )
-        {
-        std::cerr << "Error in construction from vn_matrix" << std::endl;
-        return EXIT_FAILURE;
-        }
+        EXPECT_NEAR ( d(r,c), vm(r,c), tolerance ) << "Error in construction from vn_matrix" << std::endl;
       }
     }
+}
 
+TEST_F(Array2D,AssignmentFromArray2D)
+{
   // test for assignment from Array2D
   ArrayType e;
   
@@ -90,16 +88,13 @@ int itkArray2DTest(int, char* [] )
     {
     for( unsigned int c=0; c<cols; c++)
       {
-      double diff = a(r,c) - e(r,c);
-      diff = (diff > 0.0 ) ? diff : -diff; // take abs value
-      if( diff  > tolerance )
-        {
-        std::cerr << "Error in assignment from Array2D constructor " << std::endl;
-        return EXIT_FAILURE;
-        }
+        EXPECT_NEAR ( a(r,c), e(r,c), tolerance ) << "Error in assignment from Array2D constructor " << std::endl;
       }
     }
+}
 
+TEST_F(Array2D,AssignmentFromvnl_matrix)
+{
   // test for assignment from vnl_matrix
   ArrayType f;
   
@@ -109,18 +104,7 @@ int itkArray2DTest(int, char* [] )
     {
     for( unsigned int c=0; c<cols; c++)
       {
-      double diff = f(r,c) - vm(r,c);
-      diff = (diff > 0.0 ) ? diff : -diff; // take abs value
-      if(  diff > tolerance )
-        {
-        std::cerr << "Error in assignment from  vn_matrix" << std::endl;
-        return EXIT_FAILURE;
-        }
+        EXPECT_NEAR ( f(r,c), vm(r,c), tolerance ) << "Error in assignment from  vn_matrix" << std::endl;
       }
     }
-
-
-
-  std::cout << "Test Passed ! " << std::endl;      
-  return EXIT_SUCCESS;
 }

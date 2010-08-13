@@ -16,6 +16,18 @@ IF(ITK_BINARY_DIR)
 ENDIF(ITK_BINARY_DIR)
 
 
+# Start converting to GoogleTesting
+set ( COMMON_TESTS_SOURCE 
+  itkArray2DTest.cxx
+  itkAzimuthElevationToCartesianTransformTest.cxx
+  itkBSplineDeformableTransformTest.cxx
+)
+add_executable ( itkCommonUnitTests ${COMMON_TESTS_SOURCE} )
+target_link_libraries ( itkCommonUnitTests ITKTestHarness ITKIO )
+add_google_tests ( ${CXX_TEST_PATH}/itkCommonUnitTests ${COMMON_TESTS_SOURCE} )
+
+if ( FALSE )
+
 SET(COMMON_TESTS ${CXX_TEST_PATH}/itkCommonTests)
 SET(COMMON_TESTS2 ${CXX_TEST_PATH}/itkCommonTests2)
 SET(COMMON_HEADER_TEST ${CXX_TEST_PATH}/itkCommonHeaderTest)
@@ -35,7 +47,7 @@ ADD_TEST(itkDecoratorTest ${COMMON_TESTS} itkDecoratorTest)
 ADD_TEST(itkDirectoryTest ${COMMON_TESTS} itkDirectoryTest ${TEMP})
 ADD_TEST(itkModifiedTimeTest ${COMMON_TESTS} itkModifiedTimeTest)
 ADD_TEST(itkMultipleLogOutputTest ${COMMON_TESTS} itkMultipleLogOutputTest ${TEMP}/test_multi.txt)
-ADD_TEST(itkAdaptorComparisonTest ${COMMON_TESTS} itkAdaptorComparisonTest)
+# ADD_TEST(itkAdaptorComparisonTest ${COMMON_TESTS} itkAdaptorComparisonTest)
 ADD_TEST(itkAffineTransformTest ${COMMON_TESTS} itkAffineTransformTest)
 ADD_TEST(itkFixedCenterOfRotationAffineTransformTest ${COMMON_TESTS} itkFixedCenterOfRotationAffineTransformTest)
 ADD_TEST(itkFixedArrayTest ${COMMON_TESTS} itkFixedArrayTest)
@@ -390,7 +402,7 @@ itkCommonPrintTest.cxx
 itkConditionVariableTest.cxx
 itkModifiedTimeTest.cxx
 itkMultipleLogOutputTest.cxx
-itkAdaptorComparisonTest.cxx
+# itkAdaptorComparisonTest.cxx
 itkAffineTransformTest.cxx
 itkAnnulusOperatorTest.cxx
 itkArrayTest.cxx
@@ -626,5 +638,7 @@ ADD_LIBRARY(FactoryTestLib SHARED ${FactoryTest_Source})
 TARGET_LINK_LIBRARIES (FactoryTestLib ITKCommon)
 ADD_DEPENDENCIES(itkCommonTests2 FactoryTestLib)
 ENDIF(ITK_BUILD_SHARED_LIBS)
+
+endif ( false )
 ENDIF( NOT ITK_DISABLE_CXX_TESTING )
 

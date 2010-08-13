@@ -20,6 +20,7 @@
 #if defined(_MSC_VER)
 #pragma warning ( disable : 4786 )
 #endif
+#include "itkTestHarness.h"
 
 #include "itkBSplineDeformableTransform.h"
 #include "itkBSplineInterpolateImageFunction.h"
@@ -29,205 +30,138 @@
 
 #include "itkTextOutput.h"
 
-/**
- * This module test the functionality of the BSplineDeformableTransform class.
- *
- */
-int itkBSplineDeformableTransformTest1()
-{
+const unsigned int SpaceDimension = 3;
+const unsigned int SplineOrder = 3;
+typedef double CoordinateRepType;
+typedef itk::BSplineDeformableTransform<CoordinateRepType,SpaceDimension,SplineOrder> TransformType;
+typedef TransformType::ParametersType ParametersType;
 
-  // Comment the following if you want to use the itk text output window
-  itk::OutputWindow::SetInstance(itk::TextOutput::New());
+class BSplineDeformableTransform : public testing::Test {
+public:
+  virtual void SetUp()
+  {
+    itk::OutputWindow::SetInstance(itk::TextOutput::New());
+    unsigned int j;
 
-  // Uncomment the following if you want to see each message independently
-  //itk::OutputWindow::GetInstance()->PromptUserOn();
-
-  const unsigned int SpaceDimension = 3;
-  const unsigned int SplineOrder = 3;
-  typedef double CoordinateRepType;
-  typedef itk::BSplineDeformableTransform<CoordinateRepType,SpaceDimension,SplineOrder> 
-    TransformType;
-   
-  typedef TransformType::ParametersType ParametersType;
-
-  unsigned int j;
-
-  /**
-   * Define the deformable grid region, spacing and origin
-   */
-  typedef TransformType::RegionType RegionType;
-  RegionType region;
-  RegionType::SizeType   size;
-  size.Fill( 10 );
-  region.SetSize( size );
-  std::cout << region << std::endl;
-
-  typedef TransformType::SpacingType SpacingType;
-  SpacingType spacing;
-  spacing.Fill( 2.0 );
-
-  typedef TransformType::OriginType OriginType;
-  OriginType origin;
-  origin.Fill( 0.0 );
-
-  /**
-   * Instantiate a transform
-   */
-  TransformType::Pointer transform = TransformType::New();
-
-  transform->SetGridSpacing( spacing );
-  transform->SetGridOrigin( origin );
-  transform->SetGridRegion( region );
-  transform->Print( std::cout );
+    /**
+     * Define the deformable grid region, spacing and origin
+     */
+    typedef TransformType::RegionType RegionType;
+    RegionType region;
+    RegionType::SizeType   size;
+    size.Fill( 10 );
+    region.SetSize( size );
+    std::cout << region << std::endl;
+    
+    typedef TransformType::SpacingType SpacingType;
+    SpacingType spacing;
+    spacing.Fill( 2.0 );
+    
+    typedef TransformType::OriginType OriginType;
+    OriginType origin;
+    origin.Fill( 0.0 );
+    
+    /**
+     * Instantiate a transform
+     */
+    transform = TransformType::New();
+    
+    transform->SetGridSpacing( spacing );
+    transform->SetGridOrigin( origin );
+    transform->SetGridRegion( region );
   
-  /** 
-   * Allocate memory for the parameters
-   */
-  unsigned long numberOfParameters = transform->GetNumberOfParameters();
-  ParametersType parameters( numberOfParameters );
+    /** 
+     * Allocate memory for the parameters
+     */
+    unsigned long numberOfParameters = transform->GetNumberOfParameters();
+    parameters = ParametersType ( numberOfParameters );
 
-  /**
-   * Define N * N-D grid of spline coefficients by wrapping the
-   * flat array into N images.
-   * Initialize by setting all elements to zero
-   */
-  typedef ParametersType::ValueType CoefficientType;
-  typedef itk::Image<CoefficientType,SpaceDimension> CoefficientImageType;
+    /**
+     * Define N * N-D grid of spline coefficients by wrapping the
+     * flat array into N images.
+     * Initialize by setting all elements to zero
+     */
+    typedef ParametersType::ValueType CoefficientType;
+    typedef itk::Image<CoefficientType,SpaceDimension> CoefficientImageType;
 
-  CoefficientImageType::Pointer coeffImage[SpaceDimension];
-  unsigned int numberOfPixels = region.GetNumberOfPixels();
-  CoefficientType * dataPointer = parameters.data_block();
+    CoefficientImageType::Pointer coeffImage[SpaceDimension];
+    unsigned int numberOfPixels = region.GetNumberOfPixels();
+    CoefficientType * dataPointer = parameters.data_block();
+    
+    for ( j = 0; j < SpaceDimension; j++ )
+      {
+        coeffImage[j] = CoefficientImageType::New();
+        coeffImage[j]->SetRegions( region );
+        coeffImage[j]->GetPixelContainer()->
+          SetImportPointer( dataPointer, numberOfPixels );
+        dataPointer += numberOfPixels;
+        coeffImage[j]->FillBuffer( 0.0 );
+      }
+    /**
+     * Populate the spline coefficients with some values.
+     */
+    CoefficientImageType::IndexType index;
+    index.Fill( 5 );
+    
+    coeffImage[1]->SetPixel( index, 1.0 );
+    
+    unsigned long n = coeffImage[1]->ComputeOffset( index ) +
+      numberOfPixels;
+    
+    /**
+     * Set the parameters in the transform
+     */
+    transform->SetParameters( parameters );
+  };
+  TransformType::Pointer transform;
+  ParametersType parameters;
+};
 
-  for ( j = 0; j < SpaceDimension; j++ )
-    {
-    coeffImage[j] = CoefficientImageType::New();
-    coeffImage[j]->SetRegions( region );
-    coeffImage[j]->GetPixelContainer()->
-      SetImportPointer( dataPointer, numberOfPixels );
-    dataPointer += numberOfPixels;
-    coeffImage[j]->FillBuffer( 0.0 );
-    }
+TEST_F(BSplineDeformableTransform,Coefficients) {
+    // outParametersRef should point back to parameters
+    const ParametersType & outParametersRef = transform->GetParameters();
+    ASSERT_EQ ( &outParametersRef, &parameters ) << "outParametersRef should point to the same memory as parameters";
 
+    // outParametersCopy should make a copy of the parameters
+    ParametersType outParametersCopy = transform->GetParameters();
+    ASSERT_EQ ( outParametersCopy, parameters ) << "outParametersCopy should be the same as parameters";
+    ASSERT_NE ( &outParametersCopy, &parameters ) << "outParametersCopy should point to memory different to parameters";
+}
 
-  /**
-   * Populate the spline coefficients with some values.
-   */
-  CoefficientImageType::IndexType index;
-  index.Fill( 5 );
-
-  coeffImage[1]->SetPixel( index, 1.0 );
-
-  unsigned long n = coeffImage[1]->ComputeOffset( index ) +
-    numberOfPixels;
-
-  /**
-   * Set the parameters in the transform
-   */
-  transform->SetParameters( parameters );
-
-
-  /**
-   * Get the parameters back
-   */
-
-  // outParametersRef should point back to parameters
-  const ParametersType & outParametersRef = transform->GetParameters();
-
-  if ( &outParametersRef != &parameters )
-    {
-    std::cout << "outParametersRef should point to the same memory as parameters";
-    std::cout << std::endl;
-    std::cout << "Test failed." << std::endl;
-    return EXIT_FAILURE;
-    }
-
-  // outParametersCopy should make a copy of the parameters
-  ParametersType outParametersCopy = transform->GetParameters();
-
-  if ( outParametersCopy != parameters )
-    {
-    std::cout << "outParametersCopy should be the same as parameters";
-    std::cout << std::endl;
-    std::cout << "Test failed." << std::endl;
-    return EXIT_FAILURE;
-    }
-
-  if ( &outParametersCopy == &parameters )
-    {
-    std::cout << "outParametersCopy should point to memory different to parameters";
-    std::cout << std::endl;
-    std::cout << "Test failed." << std::endl;
-    return EXIT_FAILURE;
-    }
-
-
-  /**
-   * Set a bulk transform
-   */
+TEST_F(BSplineDeformableTransform,BulkTransform) {
   typedef itk::Rigid3DTransform<CoordinateRepType> BulkTransformType;
   BulkTransformType::Pointer bulkTransform = BulkTransformType::New();
-
-  // optional: set bulk transform parameters
-
   transform->SetBulkTransform( bulkTransform );
-  std::cout << "BulkTransform: " << transform->GetBulkTransform() << std::endl;
-
-  /**
-   * Transform some points
-   */
+  
   typedef TransformType::InputPointType PointType;
 
   PointType inputPoint;
   PointType outputPoint;
 
-
   // point within the grid support region
   inputPoint.Fill( 9.0 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
-  
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
   // point outside the grid support region
   inputPoint.Fill( 40.0 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
-
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
+  
   // point inside the grid support region
   inputPoint.Fill( 2.0 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
-
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
+  
   // point inside the grid support region
   inputPoint.Fill( 15.9 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
 
   // point outside the grid support region
   inputPoint.Fill( 1.9 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
-
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
+  
   // point outside the grid support region
   inputPoint.Fill( 16.0 );
-  outputPoint = transform->TransformPoint( inputPoint );
-
-  std::cout << "Input Point: " << inputPoint << std::endl;
-  std::cout << "Output Point: " << outputPoint << std::endl;
-  std::cout << std::endl;
+  EXPECT_EQ ( transform->TransformPoint( inputPoint ), inputPoint );
+}  
+#if 0
 
   // set bulk transform to NULL
   transform->SetBulkTransform( NULL );
@@ -753,3 +687,4 @@ int itkBSplineDeformableTransformTest(int, char * [] )
 
   return EXIT_SUCCESS;
 }
+#endif

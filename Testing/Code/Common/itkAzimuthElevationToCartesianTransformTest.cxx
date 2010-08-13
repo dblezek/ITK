@@ -21,23 +21,13 @@
 #include <iostream>
 
 #include "itkAzimuthElevationToCartesianTransform.h"
+#include "itkTestHarness.h"
 
 typedef  double  CoordinateRepresentationType;
 
 typedef  itk::Point<CoordinateRepresentationType,3>   PointType;
 
-
-
-void PrintPoint( const PointType & p )
-{
-  for( unsigned int i=0; i<PointType::PointDimension; i++)
-  {
-    std::cout << p[i] << ", ";
-  }
-  std::cout << std::endl;
-}
-
-int itkAzimuthElevationToCartesianTransformTest(int, char *[])
+TEST(CommonTest, AzimuthElevationToCartesianTransformTest)
 {
 
     const CoordinateRepresentationType ACCEPTABLE_ERROR = 1E-10;
@@ -55,37 +45,18 @@ int itkAzimuthElevationToCartesianTransformTest(int, char *[])
     p[1] = 3;
     p[2] = 25;
 
-    std::cout<< "original values of (theta,phi,r) p = "<<std::endl;
-    PrintPoint(p);
-
     transform->SetForwardAzimuthElevationToCartesian();
 
     PointType answer = transform->TransformPoint(p);
-    PrintPoint(answer);
-
     PointType answerBackwards = transform->BackTransformPoint(answer);
-    PrintPoint(answerBackwards);
-
     transform->SetForwardCartesianToAzimuthElevation();
     PointType reverseDirectionAnswer = transform->BackTransformPoint(answerBackwards);
-    PrintPoint(reverseDirectionAnswer);
-
     PointType reverseDirectionAnswerBackwards = transform->TransformPoint(reverseDirectionAnswer);
-    PrintPoint(reverseDirectionAnswerBackwards);
-    transform->Print(std::cout);
 
-    bool same=true;
-    for (unsigned int i=0; i < p.PointDimension && same; i++)
-      { 
-      same = ((vnl_math_abs(p[i] - answerBackwards[i]) < ACCEPTABLE_ERROR) && 
-      (vnl_math_abs(p[i] - reverseDirectionAnswerBackwards[i]) < ACCEPTABLE_ERROR) && 
-      (vnl_math_abs(answer[i] - reverseDirectionAnswer[i]) < ACCEPTABLE_ERROR)) ;
-      }
-    if (!same) 
+    for (unsigned int i=0; i < p.PointDimension; i++)
       {
-      std::cout << "itkAzimuthElevationToCartesianTransformTest failed" <<std::endl;
-      return EXIT_FAILURE;
+        ASSERT_NEAR ( p[i], answerBackwards[i], ACCEPTABLE_ERROR);
+        ASSERT_NEAR ( p[i], reverseDirectionAnswerBackwards[i], ACCEPTABLE_ERROR);
+        ASSERT_NEAR ( answer[i], reverseDirectionAnswer[i], ACCEPTABLE_ERROR);
       }
-    std::cout << "itkAzimuthElevationToCartesianTransformTest passed" <<std::endl;
-    return EXIT_SUCCESS;
 }
