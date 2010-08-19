@@ -68,6 +68,10 @@ INCLUDE(${CMAKE_ROOT}/Modules/Dart.cmake)
 FIND_PACKAGE(Tclsh)
 MARK_AS_ADVANCED(TCL_TCLSH DART_ROOT)
 ENABLE_TESTING()
+
+# Build unit testing?
+option ( UNIT_TESTING "Build unit tests (Testing/Unit) in this configuration.  Tests are added to ctest." ON )
+
 IF(BUILD_TESTING)
   CONFIGURE_FILE(${ITK_SOURCE_DIR}/CMake/RemoveTemporaryFiles.cmake.in
     ${ITK_BINARY_DIR}/CMake/RemoveTemporaryFiles.cmake @ONLY IMMEDIATE)
@@ -401,9 +405,9 @@ SUBDIRS(Utilities Code)
 
 SUBDIRS(Wrapping)
 
-IF (BUILD_TESTING)
+IF (BUILD_TESTING OR UNIT_TESTING)
   SUBDIRS(Testing)
-ENDIF (BUILD_TESTING)
+ENDIF (BUILD_TESTING OR UNIT_TESTING)
 
 IF(BUILD_EXAMPLES)
   SUBDIRS(Examples)
