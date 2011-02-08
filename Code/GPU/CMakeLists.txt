@@ -1,5 +1,10 @@
 message("GPU acceleration using OpenCL is ON.")
 
+find_package ( OpenCL REQUIRED )
+if ( NOT ${OPENCL_FOUND} )
+  message ( FATAL "Could not find OpenCL" )
+endif()
+
 set( itkCxxSRC itkGPUDataManager.cxx itkGPUContextManager.cxx itkGPUKernelManager.cxx itkOclUtil.cxx )
 
 FILE(GLOB itkGPUSRC RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/ *.cl)
