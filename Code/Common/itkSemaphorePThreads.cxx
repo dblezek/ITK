@@ -16,6 +16,7 @@
  *
  *=========================================================================*/
 #include "itkSemaphore.h"
+#include "itkSimpleFastMutexLock.h"
 
 extern "C" {
 #include <stdio.h>
@@ -25,43 +26,34 @@ extern "C" {
 
 namespace itk
 {
+static SimpleFastMutexLock mutex;
 static int SemaphoreCount = 0;
-
-static std::string GetUniqueName()
-{
-  char   s[255];
-  time_t t = time(0);
-
-  snprintf(s, 254, "MACSEM%d%d", static_cast< int >( t ), SemaphoreCount);
-  SemaphoreCount++;
-  std::cout << "GetUniqueName: " << std::string(s) << std::endl;
-  return std::string(s);
-}
 
 Semaphore::Semaphore ()
 {
   m_Sema = 0;
   m_PThreadsSemaphoreRemoved = false;
-  std::cout << "Constructor" << std::endl;
 }
 
 void Semaphore::Initialize(unsigned int value)
 {
-  std::string name = GetUniqueName();
   m_PThreadsSemaphoreRemoved = false;
 
-  m_Sema  = sem_open(name.c_str(), O_CREAT, 0x0644, value);
+  mutex.Lock();
+  time_t t = time(0);
+  snprintf(m_SemaphoreName, 254, "MACSEM%d%d", static_cast< int >( t ), SemaphoreCount);
+  SemaphoreCount++;
+  mutex.Unlock();
+
+  m_Sema  = sem_open(m_SemaphoreName, O_CREAT, 0x0644, value);
   if ( m_Sema == (sem_t *)SEM_FAILED )
     {
-    //  perror("FAILED WITH ERROR:" );
-    itkExceptionMacro( << "sem_open call failed on " << name.c_str() );
+    itkExceptionMacro( << "sem_open call failed on " << m_SemaphoreName );
     }
-  std::cout << "Initialized" << std::endl;
 }
 
 void Semaphore::Up()
 {
-  std::cout << "Semaphore::Up" << std::endl;
   if ( sem_post(m_Sema) != 0 )
     {
     itkExceptionMacro(<< "sem_post call failed.");
@@ -70,8 +62,6 @@ void Semaphore::Up()
 
 void Semaphore::Down()
 {
-  std::cout << "Semaphore::Down" << std::endl;
-
   if ( sem_wait(m_Sema) != 0 )
     {
     itkExceptionMacro(<< "sem_wait call failed.");
@@ -80,7 +70,6 @@ void Semaphore::Down()
 
 Semaphore::~Semaphore()
 {
-  std::cout << "Semaphore::~Semaphore" << std::endl;
   if ( !m_PThreadsSemaphoreRemoved )
     {
     this->Remove();
@@ -89,11 +78,10 @@ Semaphore::~Semaphore()
 
 void Semaphore::Remove()
 {
-  std::cout << "Semaphore::Remove" << std::endl;
   m_PThreadsSemaphoreRemoved = true;
-  if ( sem_destroy(m_Sema) != 0 )
+  if ( sem_unlink(m_SemaphoreName) != 0 )
     {
-    itkExceptionMacro(<< "sem_destroy call failed. ");
+    itkExceptionMacro(<< "sem_unlink call failed. ");
     }
 }
 
