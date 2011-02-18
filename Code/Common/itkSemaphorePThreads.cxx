@@ -34,6 +34,7 @@ static std::string GetUniqueName()
 
   snprintf(s, 254, "MACSEM%d%d", static_cast< int >( t ), SemaphoreCount);
   SemaphoreCount++;
+  std::cout << "GetUniqueName: " << std::string(s) << std::endl;
   return std::string(s);
 }
 
@@ -41,6 +42,7 @@ Semaphore::Semaphore ()
 {
   m_Sema = 0;
   m_PThreadsSemaphoreRemoved = false;
+  std::cout << "Constructor" << std::endl;
 }
 
 void Semaphore::Initialize(unsigned int value)
@@ -54,11 +56,12 @@ void Semaphore::Initialize(unsigned int value)
     //  perror("FAILED WITH ERROR:" );
     itkExceptionMacro( << "sem_open call failed on " << name.c_str() );
     }
-
+  std::cout << "Initialized" << std::endl;
 }
 
 void Semaphore::Up()
 {
+  std::cout << "Semaphore::Up" << std::endl;
   if ( sem_post(m_Sema) != 0 )
     {
     itkExceptionMacro(<< "sem_post call failed.");
@@ -67,6 +70,7 @@ void Semaphore::Up()
 
 void Semaphore::Down()
 {
+  std::cout << "Semaphore::Down" << std::endl;
 
   if ( sem_wait(m_Sema) != 0 )
     {
@@ -76,6 +80,7 @@ void Semaphore::Down()
 
 Semaphore::~Semaphore()
 {
+  std::cout << "Semaphore::~Semaphore" << std::endl;
   if ( !m_PThreadsSemaphoreRemoved )
     {
     this->Remove();
@@ -84,6 +89,7 @@ Semaphore::~Semaphore()
 
 void Semaphore::Remove()
 {
+  std::cout << "Semaphore::Remove" << std::endl;
   m_PThreadsSemaphoreRemoved = true;
   if ( sem_destroy(m_Sema) != 0 )
     {
@@ -92,119 +98,3 @@ void Semaphore::Remove()
 }
 
 } //end if namespace itk
-#ifdef ITK_USE_UNIX_IPC_SEMAPHORES
-
-// UnixIpcSemaphoreCreate: will return the semaphore id (system wide)
-// of the semaphore number (key) you give.
-// If no semaphore has been established for this number, one is created.
-int Semaphore::UnixIpcSemaphoreCreate(int unix_semaphore_key)
-{
-  int         sid = -1;
-  std::string s;
-
-  if ( ( sid = semget( (key_t)unix_semaphore_key, 1, 0666 | IPC_CREAT ) ) == -1 )
-    {
-    s =  "Error#%i in function UnixIpcSemaphoreCreate. - ";
-    switch ( errno )
-      {
-      case EEXIST:
-        s += "Semaphore already exists. - ";
-        break;
-      case ENOSPC:
-        s += "System imposed limit on the number of semaphores is exceeded - ";
-        break;
-      case EACCES:
-        s += "Permission is denied - ";
-        break;
-      }
-    itkExceptionMacro( << s.c_str() );
-    }
-
-  return ( sid );
-}
-
-// UnixIpcSemaphoreDown: the semaphore signal operation.
-// sid must be the system wide semaphore number
-// returned by UnixIpcSemaphoreCreate above
-void Semaphore::UnixIpcSemaphoreDown(int sid)
-{
-  Semaphore::UnixIpcSemaphoreCall(sid, -1);
-}
-
-// UnixIpcSemaphoreUp: the semaphore release operation.
-// sid must be the system wide semaphore number
-// returned by UnixIpcSemaphoreCreate above
-void Semaphore::UnixIpcSemaphoreUp(int sid)
-{
-  Semaphore::UnixIpcSemaphoreCall(sid, 1);
-}
-
-// UixIpcSemaphoreRemove: remove a semaphore from the system.
-// sid must be the system wide semaphore number
-// returned from UnixIpcSemaphoreCreate
-void Semaphore::UnixIpcSemaphoreRemove(int sid)
-{
-  std::string s;
-
-  if ( semctl(sid, 0, IPC_RMID, 0) == -1 )
-    {
-    s =  "Error removing semaphore %i - ";
-    switch ( errno )
-      {
-      case EINVAL:
-        s += "Semaphore id#is not valid. - ";
-        break;
-      case EACCES:
-        s += "Permission is denied - ";
-        break;
-      case EPERM:
-        s += "Permission is denied - ";
-        break;
-      }
-    itkExceptionMacro ( << s.c_str() );
-    }
-}
-
-// UnixIpcSemaphoreCall: makes the system call semop for your given
-// semaphore and operation.
-void Semaphore::UnixIpcSemaphoreCall(int sid, int op)
-{
-  struct sembuf sb;
-  std::string   s;
-
-  sb.sem_num = 0;
-  sb.sem_op = op;
-  sb.sem_flg = 0;
-  if ( semop(sid, &sb, 1) == -1 )
-    {
-    if ( op == -1 )
-      {
-      s =  "Error %i in UnixIpcSemaphoreDown call for semaphore %i - ";
-      }
-    else
-      {
-      s =  "Error %i in UnixIpcSemaphoreUp call for semaphore %i - ";
-      }
-    switch ( errno )
-      {
-      case EINVAL:
-        s += "Semaphore id#is not valid. -";
-        break;
-      case EFBIG:
-        s += "Invalid sem_num for semaphore - ";
-        break;
-      case EACCES:
-        s += "Permission denied for semaphore - ";
-        break;
-      case EAGAIN:
-        s += "The operation would result in suspension of the calling process but NOWAIT is true.";
-        break;
-      case EIDRM:
-        s += "The semid is removed from the system.";
-        break;
-      }
-    itkExceptionMacro( << s.c_str() );
-    }
-}
-
-#endif
