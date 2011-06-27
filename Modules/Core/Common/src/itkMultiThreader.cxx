@@ -210,7 +210,6 @@ void MultiThreader::SetMultipleMethod(ThreadIdType index, ThreadFunctionType f, 
 // Execute the method set as the SingleMethod on NumberOfThreads threads.
 void MultiThreader::SingleMethodExecute()
 {
-  ThreadIdType                 thread_loop = 0;
   ThreadProcessIDType process_id[ITK_MAX_THREADS];
 
   if ( !m_SingleMethod )
@@ -236,14 +235,14 @@ void MultiThreader::SingleMethodExecute()
   std::string exceptionDetails;
   try
     {
-    for ( thread_loop = 1; thread_loop < m_NumberOfThreads; thread_loop++ )
+#pragma omp parallel for
+      // ThreadIdType                 thread_loop = 0;
+    for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; thread_loop++ )
       {
       m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
       m_ThreadInfoArray[thread_loop].NumberOfThreads = m_NumberOfThreads;
       m_ThreadInfoArray[thread_loop].ThreadFunction = m_SingleMethod;
-
-      process_id[thread_loop] =
-        this->DispatchSingleMethodThread(&m_ThreadInfoArray[thread_loop]);
+      this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[thread_loop] ) );
       }
     }
   catch ( std::exception & e )
@@ -259,71 +258,6 @@ void MultiThreader::SingleMethodExecute()
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
     exceptionOccurred = true;
-    }
-
-  // Now, the parent thread calls this->SingleMethod() itself
-  //
-  //
-  try
-    {
-    m_ThreadInfoArray[0].UserData = m_SingleData;
-    m_ThreadInfoArray[0].NumberOfThreads = m_NumberOfThreads;
-    m_SingleMethod( (void *)( &m_ThreadInfoArray[0] ) );
-    }
-  catch ( ProcessAborted & excp )
-    {
-    // Need cleanup and rethrow ProcessAborted
-    // close down other threads
-    for ( thread_loop = 1; thread_loop < m_NumberOfThreads; thread_loop++ )
-      {
-      try
-        {
-        this->WaitForSingleMethodThread(process_id[thread_loop]);
-        }
-      catch ( ... )
-              {}
-      }
-    // rethrow
-    throw excp;
-    }
-  catch ( std::exception & e )
-    {
-    // get the details of the exception to rethrow them
-    exceptionDetails = e.what();
-    // if this method fails, we must make sure all threads are
-    // correctly cleaned
-    exceptionOccurred = true;
-    }
-  catch ( ... )
-    {
-    // if this method fails, we must make sure all threads are
-    // correctly cleaned
-    exceptionOccurred = true;
-    }
-
-  // The parent thread has finished this->SingleMethod() - so now it
-  // waits for each of the other processes to exit
-  for ( thread_loop = 1; thread_loop < m_NumberOfThreads; thread_loop++ )
-    {
-    try
-      {
-      this->WaitForSingleMethodThread(process_id[thread_loop]);
-      if ( m_ThreadInfoArray[thread_loop].ThreadExitCode
-           != ThreadInfoStruct::SUCCESS )
-        {
-        exceptionOccurred = true;
-        }
-      }
-    catch ( std::exception & e )
-      {
-      // get the details of the exception to rethrow them
-      exceptionDetails = e.what();
-      exceptionOccurred = true;
-      }
-    catch ( ... )
-      {
-      exceptionOccurred = true;
-      }
     }
 
   if ( exceptionOccurred )

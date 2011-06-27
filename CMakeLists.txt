@@ -49,6 +49,14 @@ endmacro()
 option(ITK_USE_BRAINWEB_DATA "Download and use BrainWeb data for advanced testing" OFF)
 mark_as_advanced(ITK_USE_BRAINWEB_DATA)
 
+  find_package( OpenMP )
+  if ( OPENMP_FOUND )
+    set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}" )
+    set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}" )
+  endif ( OPENMP_FOUND )
+
+
+
 #-----------------------------------------------------------------------------
 # ITK wrapper for add_test that automatically sets the test's LABELS property
 # to the value of its containing module.
