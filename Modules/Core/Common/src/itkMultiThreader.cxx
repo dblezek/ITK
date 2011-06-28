@@ -30,6 +30,7 @@
 #include "itksys/SystemTools.hxx"
 #include <stdlib.h>
 
+#include <omp.h>
 
 #if defined(ITK_USE_PTHREADS)
 #include "itkMultiThreaderPThreads.cxx"
@@ -233,6 +234,8 @@ void MultiThreader::SingleMethodExecute()
   // exceptions thrown by threads.
   bool        exceptionOccurred = false;
   std::string exceptionDetails;
+  // Honor the Global Number of Threads
+  omp_set_num_threads ( this->m_NumberOfThreads );
   try
     {
 #pragma omp parallel for
