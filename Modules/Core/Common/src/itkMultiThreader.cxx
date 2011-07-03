@@ -225,6 +225,25 @@ void MultiThreader::SingleMethodExecute()
     m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
     }
 
+  omp_set_nested(1);
+
+  // Initialize the m_ThreadInforArray
+  //
+  // While this method could be part of the multi-threaded region, it
+  // is not because of the potential for false-sharing between
+  // threads, or process cache thrashing to to the close proximity of
+  // the elements in the array.
+  //
+  // Instead we hope for SIMD optimization by the compiler ( so keep
+  // this a simple loop ).
+  for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; ++thread_loop )
+    {
+    m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
+    m_ThreadInfoArray[thread_loop].NumberOfThreads = m_NumberOfThreads;
+    m_ThreadInfoArray[thread_loop].ThreadFunction = m_SingleMethod;
+    }
+
+
   // Spawn a set of threads through the SingleMethodProxy. Exceptions
   // thrown from a thread will be caught by the SingleMethodProxy. A
   // naive mechanism is in place for determining whether a thread
@@ -234,34 +253,38 @@ void MultiThreader::SingleMethodExecute()
   // exceptions thrown by threads.
   bool        exceptionOccurred = false;
   std::string exceptionDetails;
-  // Honor the Global Number of Threads
-  omp_set_num_threads ( this->m_NumberOfThreads );
+
+#pragma omp parallel                            \
+  num_threads(this->m_NumberOfThreads)          \
+  reduction(||:exceptionOccurred)               \
+  default( shared )
+
+  //for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; thread_loop++ )
+  {
+  bool localExceptionOccurred = false;
   try
     {
-#pragma omp parallel for
-      // ThreadIdType                 thread_loop = 0;
-    for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; thread_loop++ )
-      {
-      m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
-      m_ThreadInfoArray[thread_loop].NumberOfThreads = m_NumberOfThreads;
-      m_ThreadInfoArray[thread_loop].ThreadFunction = m_SingleMethod;
-      this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[thread_loop] ) );
-      }
+    int threadNum = omp_get_thread_num();
+    this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[threadNum] ) );
     }
   catch ( std::exception & e )
     {
     // get the details of the exception to rethrow them
-    exceptionDetails = e.what();
+#pragma omp critical
+    { exceptionDetails = e.what(); }
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
-    exceptionOccurred = true;
+    localExceptionOccurred = true;
     }
   catch ( ... )
     {
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
-    exceptionOccurred = true;
+    localExceptionOccurred = true;
     }
+  exceptionOccurred = exceptionOccurred || localExceptionOccurred;
+#pragma omp barrier
+  }
 
   if ( exceptionOccurred )
     {
@@ -272,6 +295,14 @@ void MultiThreader::SingleMethodExecute()
     else
       {
       itkExceptionMacro(<< "Exception occurred during SingleMethodExecute" << std::endl << exceptionDetails);
+      }
+    }
+
+  for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; ++thread_loop )
+    {
+    if (m_ThreadInfoArray[thread_loop].ThreadExitCode != MultiThreader::ThreadInfoStruct::SUCCESS )
+      {
+      itkExceptionMacro("Exception occurred during SingleMethodExecute");
       }
     }
 }
@@ -294,20 +325,24 @@ MultiThreader
     {
     threadInfoStruct->ThreadExitCode =
       MultiThreader::ThreadInfoStruct::ITK_PROCESS_ABORTED_EXCEPTION;
+    throw;
     }
   catch ( ExceptionObject & )
     {
     threadInfoStruct->ThreadExitCode =
       MultiThreader::ThreadInfoStruct::ITK_EXCEPTION;
+    throw;
     }
   catch ( std::exception & )
     {
     threadInfoStruct->ThreadExitCode =
       MultiThreader::ThreadInfoStruct::STD_EXCEPTION;
+    throw;
     }
   catch ( ... )
     {
     threadInfoStruct->ThreadExitCode = MultiThreader::ThreadInfoStruct::UNKNOWN;
+    throw;
     }
 
   return ITK_THREAD_RETURN_VALUE;
