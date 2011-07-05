@@ -225,7 +225,41 @@ void MultiThreader::SingleMethodExecute()
     m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
     }
 
-  omp_set_nested(1);
+  //
+  // Enable nested parallel regions
+  //
+  if ( !omp_get_nested() )
+    {
+    // The OpenMP 2.5 spec is unclear of the omp_get_nested binding
+    // thread set. In one location it's the current thread, in another
+    // it says it is implementation defined. It'll have to do.
+
+#if !(_OPENMP >= 200805 )
+    // OpenMP 3.0 explicitly specifies that omp_set_nested works in
+    // nexted parallel regions or tasks
+    if ( omp_in_parallel() )
+      {
+      itkWarningMacro( << "omp_set_nested() was not set in outter thead team. "
+                       << "Effect of setting omp_set_nested() from within parallel "
+                       << "region is implementation defined." );
+      }
+#endif
+      omp_set_nested(1);
+
+
+      // For implementations which don't support nested parallelism
+      // the following value will remain false.
+      if ( !omp_get_nested() )
+        {
+        itkExceptionMacro( << "Failure to set omp_get_nested when nexted "
+                           << "parallel regions are required." );
+        }
+    }
+
+#if (_OPENMP >= 200805 )
+  #warning need to add support for checking the nesting level
+#endif
+
 
   // Initialize the m_ThreadInforArray
   //
@@ -264,14 +298,20 @@ void MultiThreader::SingleMethodExecute()
   bool localExceptionOccurred = false;
   try
     {
+    if ( omp_get_num_threads() != this->m_NumberOfThreads )
+      {
+      itkExceptionMacro( "Failed to spawn the required number of threads\n"
+                         << " Requested " << this->m_NumberOfThreads
+                         << " but only got " << omp_get_num_threads() );
+      }
+
     int threadNum = omp_get_thread_num();
     this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[threadNum] ) );
     }
   catch ( std::exception & e )
     {
     // get the details of the exception to rethrow them
-#pragma omp critical
-    { exceptionDetails = e.what(); }
+    //{ exceptionDetails = e.what(); }
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
     localExceptionOccurred = true;
