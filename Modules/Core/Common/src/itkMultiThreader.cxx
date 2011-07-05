@@ -211,8 +211,6 @@ void MultiThreader::SetMultipleMethod(ThreadIdType index, ThreadFunctionType f, 
 // Execute the method set as the SingleMethod on NumberOfThreads threads.
 void MultiThreader::SingleMethodExecute()
 {
-  ThreadProcessIDType process_id[ITK_MAX_THREADS];
-
   if ( !m_SingleMethod )
     {
     itkExceptionMacro(<< "No single method set!");
@@ -220,9 +218,9 @@ void MultiThreader::SingleMethodExecute()
     }
 
   // obey the global maximum number of threads limit
-  if ( m_NumberOfThreads > m_GlobalMaximumNumberOfThreads )
+  if ( this->m_NumberOfThreads > m_GlobalMaximumNumberOfThreads )
     {
-    m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
+    this->m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
     }
 
   //
@@ -273,7 +271,9 @@ void MultiThreader::SingleMethodExecute()
   //
   // Instead we hope for SIMD optimization by the compiler ( so keep
   // this a simple loop ).
-  for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; ++thread_loop )
+  int NThreads = this->m_NumberOfThreads;
+#pragma omp parallel for
+  for ( int thread_loop = 0; thread_loop < NThreads; ++thread_loop )
     {
     m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
     m_ThreadInfoArray[thread_loop].NumberOfThreads = m_NumberOfThreads;
@@ -293,21 +293,21 @@ void MultiThreader::SingleMethodExecute()
   std::string exceptionDetails;
 
 
-  // omp_set_num_threads ( this->m_NumberOfThreads );
-  if ( omp_get_num_threads() != this->m_NumberOfThreads )
-    {
-      itkWarningMacro( "Failed to spawn the required number of threads\n"
-                         << " Requested " << this->m_NumberOfThreads
-                         << " but only got " << omp_get_num_threads() );
-    }
-
 #pragma omp parallel                            \
+  num_threads(this->m_NumberOfThreads)          \
   reduction(|:exceptionOccurred)               \
   default( shared )
   {
   bool localExceptionOccurred = false;
   try
     {
+    if ( omp_get_num_threads() != NThreads )
+      {
+      itkExceptionMacro( "Failed to spawn the required number of threads\n"
+                         << " Requested " << this->m_NumberOfThreads
+                         << " but only got " << omp_get_num_threads() );
+      }
+
     int threadNum = omp_get_thread_num();
     this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[threadNum] ) );
     }
@@ -341,7 +341,7 @@ void MultiThreader::SingleMethodExecute()
       }
     }
 
-  for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; ++thread_loop )
+  for ( int thread_loop = 0; thread_loop < NThreads; ++thread_loop )
     {
     if (m_ThreadInfoArray[thread_loop].ThreadExitCode != MultiThreader::ThreadInfoStruct::SUCCESS )
       {
