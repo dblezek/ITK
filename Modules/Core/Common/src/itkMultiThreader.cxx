@@ -236,10 +236,11 @@ void MultiThreader::SingleMethodExecute()
 
 #if !(_OPENMP >= 200805 )
     // OpenMP 3.0 explicitly specifies that omp_set_nested works in
-    // nexted parallel regions or tasks
+    // nexted parallel regions or tasks, where as for 2.5 its
+    // undefined.
     if ( omp_in_parallel() )
       {
-      itkWarningMacro( << "omp_set_nested() was not set in outter thead team. "
+      itkWarningMacro( << "omp_set_nested() was not set in outter thread team. "
                        << "Effect of setting omp_set_nested() from within parallel "
                        << "region is implementation defined." );
       }
@@ -285,15 +286,13 @@ void MultiThreader::SingleMethodExecute()
   //
   // Thanks to Hannu Helminen for suggestions on how to catch
   // exceptions thrown by threads.
-  bool        exceptionOccurred = false;
+  int         exceptionOccurred = false;
   std::string exceptionDetails;
 
 #pragma omp parallel                            \
   num_threads(this->m_NumberOfThreads)          \
-  reduction(||:exceptionOccurred)               \
+  reduction(|:exceptionOccurred)               \
   default( shared )
-
-  //for ( int thread_loop = 0; thread_loop < m_NumberOfThreads; thread_loop++ )
   {
   bool localExceptionOccurred = false;
   try
@@ -311,7 +310,8 @@ void MultiThreader::SingleMethodExecute()
   catch ( std::exception & e )
     {
     // get the details of the exception to rethrow them
-    //{ exceptionDetails = e.what(); }
+#pragma omp critical
+   { exceptionDetails = e.what(); }
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
     localExceptionOccurred = true;
@@ -322,8 +322,7 @@ void MultiThreader::SingleMethodExecute()
     // threads are correctly cleaned
     localExceptionOccurred = true;
     }
-  exceptionOccurred = exceptionOccurred || localExceptionOccurred;
-#pragma omp barrier
+  exceptionOccurred |= localExceptionOccurred;
   }
 
   if ( exceptionOccurred )
