@@ -93,7 +93,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
      if("${${listname}}" MATCHES ".*-fopenmp.*")
        # string(REPLACE "-fopenmp" "" tmpFlags "${${listname}}")
        # set(${listname} "${tmpFlags}")
-       # message("-fopenmp causes incorrect compliation of HDF, removing from ${listname}")
+       message("-fopenmp causes incorrect compliation of HDF, removing from ${listname}")
      endif()
    endforeach(listname ${compile_flag_lists})
 

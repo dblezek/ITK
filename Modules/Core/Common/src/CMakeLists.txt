@@ -73,6 +73,7 @@ itkNumericTraitsDiffusionTensor3DPixel.cxx
 itkEquivalencyTable.cxx
 itkXMLFileOutputWindow.cxx
 itkStoppingCriterionBase.cxx
+itkOpenMP.cxx
 )
 
 if(WIN32)

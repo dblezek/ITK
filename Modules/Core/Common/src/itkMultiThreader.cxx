@@ -30,7 +30,7 @@
 #include "itksys/SystemTools.hxx"
 #include <stdlib.h>
 
-#include <omp.h>
+#include "itkOpenMP.h"
 
 #if defined(ITK_USE_PTHREADS)
 #include "itkMultiThreaderPThreads.cxx"
@@ -135,7 +135,7 @@ ThreadIdType MultiThreader::GetGlobalDefaultNumberOfThreads()
   if ( m_GlobalDefaultNumberOfThreads <= 0 )
     {
     ThreadIdType num;
-    num = GetGlobalDefaultNumberOfThreadsByPlatform();
+    num = omp_get_num_procs();
     m_GlobalDefaultNumberOfThreads = num;
     }
 
@@ -236,7 +236,7 @@ void MultiThreader::SingleMethodExecute()
 
 #if !(_OPENMP >= 200805 )
     // OpenMP 3.0 explicitly specifies that omp_set_nested works in
-    // nexted parallel regions or tasks, where as for 2.5 its
+    // nested parallel regions or tasks, where as for 2.5 its
     // undefined.
     if ( omp_in_parallel() )
       {
@@ -252,7 +252,9 @@ void MultiThreader::SingleMethodExecute()
       // the following value will remain false.
       if ( !omp_get_nested() )
         {
-        itkExceptionMacro( << "Failure to set omp_get_nested when nexted "
+        // This must be a warning, because the "stub" interface does not support
+        // nested parallel regions (nor any parallel regions for that matter).
+        itkWarningMacro( << "Failure to set omp_get_nested when nested "
                            << "parallel regions are required." );
         }
     }
@@ -276,6 +278,7 @@ void MultiThreader::SingleMethodExecute()
     m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
     m_ThreadInfoArray[thread_loop].NumberOfThreads = m_NumberOfThreads;
     m_ThreadInfoArray[thread_loop].ThreadFunction = m_SingleMethod;
+    m_ThreadInfoArray[thread_loop].ThreadExitCode = MultiThreader::ThreadInfoStruct::SUCCESS;
     }
 
 
@@ -289,21 +292,22 @@ void MultiThreader::SingleMethodExecute()
   int         exceptionOccurred = false;
   std::string exceptionDetails;
 
+
+  // omp_set_num_threads ( this->m_NumberOfThreads );
+  if ( omp_get_num_threads() != this->m_NumberOfThreads )
+    {
+      itkWarningMacro( "Failed to spawn the required number of threads\n"
+                         << " Requested " << this->m_NumberOfThreads
+                         << " but only got " << omp_get_num_threads() );
+    }
+
 #pragma omp parallel                            \
-  num_threads(this->m_NumberOfThreads)          \
   reduction(|:exceptionOccurred)               \
   default( shared )
   {
   bool localExceptionOccurred = false;
   try
     {
-    if ( omp_get_num_threads() != this->m_NumberOfThreads )
-      {
-      itkExceptionMacro( "Failed to spawn the required number of threads\n"
-                         << " Requested " << this->m_NumberOfThreads
-                         << " but only got " << omp_get_num_threads() );
-      }
-
     int threadNum = omp_get_thread_num();
     this->SingleMethodProxy ( reinterpret_cast< void * >( &m_ThreadInfoArray[threadNum] ) );
     }
@@ -311,7 +315,7 @@ void MultiThreader::SingleMethodExecute()
     {
     // get the details of the exception to rethrow them
 #pragma omp critical
-   { exceptionDetails = e.what(); }
+    { exceptionDetails = e.what();}
     // If creation of any thread failed, we must make sure that all
     // threads are correctly cleaned
     localExceptionOccurred = true;
