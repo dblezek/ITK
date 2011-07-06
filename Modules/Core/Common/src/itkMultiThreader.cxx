@@ -27,8 +27,10 @@
  *=========================================================================*/
 #include "itkMultiThreader.h"
 #include "itkObjectFactory.h"
+#include "itkNumericTraits.h"
 #include "itksys/SystemTools.hxx"
 #include <stdlib.h>
+#include <algorithm>
 
 #include "itkOpenMP.h"
 
@@ -54,21 +56,15 @@ void MultiThreader::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 {
   m_GlobalMaximumNumberOfThreads = val;
 
-  if ( m_GlobalMaximumNumberOfThreads > ITK_MAX_THREADS )
-    {
-    m_GlobalMaximumNumberOfThreads = ITK_MAX_THREADS;
-    }
-
-  if ( m_GlobalMaximumNumberOfThreads < 1 )
-    {
-    m_GlobalMaximumNumberOfThreads = 1;
-    }
+  // clamp between 1 and ITK_MAX_THREADS
+  m_GlobalMaximumNumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads,
+                                             (ThreadIdType) ITK_MAX_THREADS );
+  m_GlobalMaximumNumberOfThreads = std::max( m_GlobalMaximumNumberOfThreads,
+                                             NumericTraits<ThreadIdType>::One );
 
   // If necessary reset the default to be used from now on.
-  if ( m_GlobalDefaultNumberOfThreads > m_GlobalMaximumNumberOfThreads )
-    {
-    m_GlobalDefaultNumberOfThreads = m_GlobalMaximumNumberOfThreads;
-    }
+  m_GlobalDefaultNumberOfThreads = std::min ( m_GlobalDefaultNumberOfThreads,
+                                              m_GlobalMaximumNumberOfThreads);
 }
 
 ThreadIdType MultiThreader::GetGlobalMaximumNumberOfThreads()
@@ -80,15 +76,12 @@ void MultiThreader::SetGlobalDefaultNumberOfThreads(ThreadIdType val)
 {
   m_GlobalDefaultNumberOfThreads = val;
 
-  if ( m_GlobalDefaultNumberOfThreads > m_GlobalMaximumNumberOfThreads )
-    {
-    m_GlobalDefaultNumberOfThreads = m_GlobalMaximumNumberOfThreads;
-    }
+  // clamp between 1 and m_GlobalMaximumNumberOfThreads
+  m_GlobalDefaultNumberOfThreads  = std::min( m_GlobalDefaultNumberOfThreads,
+                                              m_GlobalMaximumNumberOfThreads );
+  m_GlobalDefaultNumberOfThreads  = std::max( m_GlobalDefaultNumberOfThreads,
+                                              NumericTraits<ThreadIdType>::One );
 
-  if ( m_GlobalDefaultNumberOfThreads < 1 )
-    {
-    m_GlobalDefaultNumberOfThreads = 1;
-    }
 }
 
 void MultiThreader::SetNumberOfThreads(ThreadIdType numberOfThreads)
@@ -101,15 +94,11 @@ void MultiThreader::SetNumberOfThreads(ThreadIdType numberOfThreads)
 
   m_NumberOfThreads = numberOfThreads;
 
-  if ( m_NumberOfThreads > m_GlobalMaximumNumberOfThreads )
-    {
-    m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
-    }
+  // clamp between 1 and m_GlobalMaximumNumberOfThreads
+  m_NumberOfThreads  = std::min( m_NumberOfThreads,
+                                 m_GlobalMaximumNumberOfThreads );
+  m_NumberOfThreads  = std::max( m_NumberOfThreads, NumericTraits<ThreadIdType>::One );
 
-  if ( m_NumberOfThreads < 1 )
-    {
-    m_NumberOfThreads = 1;
-    }
 }
 
 
@@ -140,16 +129,12 @@ ThreadIdType MultiThreader::GetGlobalDefaultNumberOfThreads()
     }
 
   // limit the number of threads to m_GlobalMaximumNumberOfThreads
-  if ( m_GlobalDefaultNumberOfThreads > m_GlobalMaximumNumberOfThreads )
-    {
-    m_GlobalDefaultNumberOfThreads = m_GlobalMaximumNumberOfThreads;
-    }
+  m_GlobalDefaultNumberOfThreads  = std::min( m_GlobalDefaultNumberOfThreads,
+                                              m_GlobalMaximumNumberOfThreads );
 
   // verify that the default number of threads is larger than zero
-  if ( m_GlobalDefaultNumberOfThreads < 1 )
-    {
-    m_GlobalDefaultNumberOfThreads = 1;
-    }
+  m_GlobalDefaultNumberOfThreads  = std::max( m_GlobalDefaultNumberOfThreads,
+                                              NumericTraits<ThreadIdType>::One );
 
   return m_GlobalDefaultNumberOfThreads;
 }
@@ -218,44 +203,7 @@ void MultiThreader::SingleMethodExecute()
     }
 
   // obey the global maximum number of threads limit
-  if ( this->m_NumberOfThreads > m_GlobalMaximumNumberOfThreads )
-    {
-    this->m_NumberOfThreads = m_GlobalMaximumNumberOfThreads;
-    }
-
-  //
-  // Enable nested parallel regions
-  //
-  if ( !omp_get_nested() )
-    {
-    // The OpenMP 2.5 spec is unclear of the omp_get_nested binding
-    // thread set. In one location it's the current thread, in another
-    // it says it is implementation defined. It'll have to do.
-
-#if !(_OPENMP >= 200805 )
-    // OpenMP 3.0 explicitly specifies that omp_set_nested works in
-    // nested parallel regions or tasks, where as for 2.5 its
-    // undefined.
-    if ( omp_in_parallel() )
-      {
-      itkWarningMacro( << "omp_set_nested() was not set in outter thread team. "
-                       << "Effect of setting omp_set_nested() from within parallel "
-                       << "region is implementation defined." );
-      }
-#endif
-      omp_set_nested(1);
-
-
-      // For implementations which don't support nested parallelism
-      // the following value will remain false.
-      if ( !omp_get_nested() )
-        {
-        // This must be a warning, because the "stub" interface does not support
-        // nested parallel regions (nor any parallel regions for that matter).
-        itkWarningMacro( << "Failure to set omp_get_nested when nested "
-                           << "parallel regions are required." );
-        }
-    }
+  m_NumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads, m_NumberOfThreads );
 
 #if (_OPENMP >= 200805 )
   #warning need to add support for checking the nesting level
