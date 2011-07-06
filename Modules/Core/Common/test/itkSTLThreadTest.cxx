@@ -56,9 +56,9 @@ int itkSTLThreadTest(int argc, char* argv[])
     }
 
   // Enforce limit on number of threads.
-  if(numThreads > ITK_MAX_THREADS)
+  if(numThreads > itk::MultiThreader::GetGlobalMaximumNumberOfThreads())
     {
-    numThreads = ITK_MAX_THREADS;
+    numThreads = itk::MultiThreader::GetGlobalMaximumNumberOfThreads();
     }
 
   // Report what we'll do.

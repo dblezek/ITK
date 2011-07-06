@@ -112,7 +112,16 @@ int itkConditionVariableTest(int , char*[])
   try
     {
     itk::MultiThreader::Pointer multithreader = itk::MultiThreader::New();
-    multithreader->SetNumberOfThreads(3);
+    itk::ThreadIdType NumberOfThreads = std::min ( static_cast<itk::ThreadIdType> ( 3 ),
+                                                   itk::MultiThreader::GetGlobalMaximumNumberOfThreads() );
+    // This test won't work if we only have 1 thread
+    if ( NumberOfThreads < 2 )
+      {
+      std::cout << "Condition variable test requires at least 2 threads" << std::endl;
+      return EXIT_SUCCESS;
+      }
+
+    multithreader->SetNumberOfThreads(NumberOfThreads);
     multithreader->SetSingleMethod( ConditionVariableTestCallback, &cond);
 
     for (unsigned int i = 0; i < 1000; i++)

@@ -46,7 +46,7 @@
 namespace itk
 {
 // Initialize static member that controls global maximum number of threads.
-ThreadIdType MultiThreader:: m_GlobalMaximumNumberOfThreads = ITK_MAX_THREADS;
+ThreadIdType MultiThreader:: m_GlobalMaximumNumberOfThreads = 0;
 
 // Initialize static member that controls global default number of threads : 0
 // => Not initialized.
@@ -58,7 +58,7 @@ void MultiThreader::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 
   // clamp between 1 and ITK_MAX_THREADS
   m_GlobalMaximumNumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads,
-                                             (ThreadIdType) ITK_MAX_THREADS );
+                                             (ThreadIdType) omp_get_max_threads() );
   m_GlobalMaximumNumberOfThreads = std::max( m_GlobalMaximumNumberOfThreads,
                                              NumericTraits<ThreadIdType>::One );
 
@@ -69,6 +69,11 @@ void MultiThreader::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 
 ThreadIdType MultiThreader::GetGlobalMaximumNumberOfThreads()
 {
+#pragma omp critical (GetGlobalMaximumNumberOfThreads)
+  if ( m_GlobalMaximumNumberOfThreads == 0 )
+    {
+    m_GlobalMaximumNumberOfThreads = omp_get_max_threads();
+    }
   return m_GlobalMaximumNumberOfThreads;
 }
 
@@ -124,7 +129,7 @@ ThreadIdType MultiThreader::GetGlobalDefaultNumberOfThreads()
   if ( m_GlobalDefaultNumberOfThreads <= 0 )
     {
     ThreadIdType num;
-    num = omp_get_num_procs();
+    num = omp_get_max_threads();
     m_GlobalDefaultNumberOfThreads = num;
     }
 
@@ -161,6 +166,7 @@ MultiThreader::MultiThreader()
 
   m_SingleMethod = 0;
   m_SingleData = 0;
+  MultiThreader::SetGlobalMaximumNumberOfThreads(ITK_MAX_THREADS);
   m_NumberOfThreads = this->GetGlobalDefaultNumberOfThreads();
 }
 
@@ -204,6 +210,7 @@ void MultiThreader::SingleMethodExecute()
 
   // obey the global maximum number of threads limit
   m_NumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads, m_NumberOfThreads );
+  std::cout << "SingleMethodExecute MultiThreader Global default: " << this->GetGlobalDefaultNumberOfThreads() << " GlobalMax: " << m_GlobalMaximumNumberOfThreads << " # threads: " << m_NumberOfThreads << std::endl;
 
 #if (_OPENMP >= 200805 )
   #warning need to add support for checking the nesting level

@@ -121,11 +121,14 @@ ITK_THREAD_RETURN_TYPE BarrierSpecialTest( void *ptr )
 
 int itkBarrierTest(int argc, char *argv[])
 {
-  int number_of_threads = 4;
+  itk::ThreadIdType number_of_threads = 4;
   if (argc > 1)
     {
-    number_of_threads = ::atoi(argv[1]);
+    number_of_threads = static_cast<itk::ThreadIdType> ( ::atoi(argv[1]) );
     }
+
+  // Clamp the number of threads
+  number_of_threads = std::min ( number_of_threads, itk::MultiThreader::GetGlobalMaximumNumberOfThreads() );
 
   BarrierTestUserData data(number_of_threads);
 
