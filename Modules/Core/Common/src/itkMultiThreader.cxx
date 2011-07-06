@@ -272,7 +272,6 @@ void MultiThreader::SingleMethodExecute()
   // Instead we hope for SIMD optimization by the compiler ( so keep
   // this a simple loop ).
   int NThreads = this->m_NumberOfThreads;
-#pragma omp parallel for
   for ( int thread_loop = 0; thread_loop < NThreads; ++thread_loop )
     {
     m_ThreadInfoArray[thread_loop].UserData    = m_SingleData;
