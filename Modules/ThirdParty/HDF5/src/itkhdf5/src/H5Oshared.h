@@ -47,7 +47,7 @@
  *
  *-------------------------------------------------------------------------
  */
-static H5_inline void *
+static void *
 H5O_SHARED_DECODE(H5F_t *f, hid_t dxpl_id, H5O_t *open_oh, unsigned mesg_flags,
     unsigned *ioflags, const uint8_t *p)
 {

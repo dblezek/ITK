@@ -772,9 +772,13 @@
 #cmakedefine H5_const
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
-   calls it, or to nothing if 'inline' is not supported under any name.  */
+   calls it, or to nothing if 'inline' is not supported under any name.
+   NB: disable when compiling with OpenMP
+*/
 #ifndef __cplusplus
+#ifndef _OPENMP
 #cmakedefine H5_inline @H5_inline@
+#endif
 #endif
 
 /* Define to `long int' if <sys/types.h> does not define. */
