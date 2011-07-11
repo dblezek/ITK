@@ -38,15 +38,13 @@ namespace itk
  * \brief A class for performing multithreaded execution
  *
  * Multithreader is a class that provides support for multithreaded
- * execution using sproc() on an SGI, or pthread_create on any platform
- * supporting POSIX threads.  This class can be used to execute a single
- * method on multiple threads, or to specify a method per thread.
+ * execution using OpenMP.  If the OpenMP environment is not available, stub
+ * functions are used to emulate OpenMP.  This class can be used to execute a single
+ * method on multiple threads.  In addition, it may spawn a single, long,
+ * lived thread for utility tasks.
  *
- * \ingroup OSSystemObejcts
+ * \ingroup OSSystemObjects
  *
- * If ITK_USE_PTHREADS is defined, then
- * pthread_create() will be used to create multiple threads (on
- * a sun, for example).
  * \ingroup ITK-Common
  */
 
@@ -95,22 +93,12 @@ public:
    * necessary. */
   void SingleMethodExecute();
 
-  /** Execute the MultipleMethods (as define by calling SetMultipleMethod for
-   * each of the required m_NumberOfThreads methods) using m_NumberOfThreads
-   * threads. As a side effect the m_NumberOfThreads will be checked against the
-   * current m_GlobalMaximumNumberOfThreads and clamped if necessary. */
-  void MultipleMethodExecute();
-
   /** Set the SingleMethod to f() and the UserData field of the
    * ThreadInfoStruct that is passed to it will be data.
    * This method (and all the methods passed to SetMultipleMethod)
    * must be of type itkThreadFunctionType and must take a single argument of
    * type void *. */
   void SetSingleMethod(ThreadFunctionType, void *data);
-
-  /** Set the MultipleMethod at the given index to f() and the UserData
-   * field of the ThreadInfoStruct that is passed to it will be data. */
-  void SetMultipleMethod(ThreadIdType index, ThreadFunctionType, void *data);
 
   /** Create a new thread for the given function. Return a thread id
      * which is a number between 0 and ITK_MAX_THREADS - 1. This
@@ -160,7 +148,6 @@ private:
 
   /** The methods to invoke. */
   ThreadFunctionType m_SingleMethod;
-  ThreadFunctionType m_MultipleMethod[ITK_MAX_THREADS];
 
   /** Storage of MutexFunctions and ints used to control spawned
    *  threads and the spawned thread ids. */
@@ -171,7 +158,6 @@ private:
 
   /** Internal storage of the data. */
   void *m_SingleData;
-  void *m_MultipleData[ITK_MAX_THREADS];
 
   /** Global variable defining the maximum number of threads that can be used.
    *  The m_GlobalMaximumNumberOfThreads must always be less than or equal to

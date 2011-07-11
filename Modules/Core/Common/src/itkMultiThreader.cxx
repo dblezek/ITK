@@ -46,7 +46,7 @@
 namespace itk
 {
 // Initialize static member that controls global maximum number of threads.
-ThreadIdType MultiThreader:: m_GlobalMaximumNumberOfThreads = 0;
+ThreadIdType MultiThreader:: m_GlobalMaximumNumberOfThreads = ITK_MAX_THREADS;
 
 // Initialize static member that controls global default number of threads : 0
 // => Not initialized.
@@ -58,7 +58,7 @@ void MultiThreader::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 
   // clamp between 1 and ITK_MAX_THREADS
   m_GlobalMaximumNumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads,
-                                             (ThreadIdType) omp_get_max_threads() );
+                                             (ThreadIdType) ITK_MAX_THREADS );
   m_GlobalMaximumNumberOfThreads = std::max( m_GlobalMaximumNumberOfThreads,
                                              NumericTraits<ThreadIdType>::One );
 
@@ -69,10 +69,11 @@ void MultiThreader::SetGlobalMaximumNumberOfThreads(ThreadIdType val)
 
 ThreadIdType MultiThreader::GetGlobalMaximumNumberOfThreads()
 {
+  std::cout << "GetGlobalMaximumNumberOfThreads: " << m_GlobalMaximumNumberOfThreads << std::endl;
 #pragma omp critical (GetGlobalMaximumNumberOfThreads)
   if ( m_GlobalMaximumNumberOfThreads == 0 )
     {
-    m_GlobalMaximumNumberOfThreads = omp_get_max_threads();
+    m_GlobalMaximumNumberOfThreads = ITK_MAX_THREADS;
     }
   return m_GlobalMaximumNumberOfThreads;
 }
@@ -135,7 +136,7 @@ ThreadIdType MultiThreader::GetGlobalDefaultNumberOfThreads()
 
   // limit the number of threads to m_GlobalMaximumNumberOfThreads
   m_GlobalDefaultNumberOfThreads  = std::min( m_GlobalDefaultNumberOfThreads,
-                                              m_GlobalMaximumNumberOfThreads );
+                                              GetGlobalMaximumNumberOfThreads() );
 
   // verify that the default number of threads is larger than zero
   m_GlobalDefaultNumberOfThreads  = std::max( m_GlobalDefaultNumberOfThreads,
@@ -156,9 +157,6 @@ MultiThreader::MultiThreader()
     m_ThreadInfoArray[i].ActiveFlag         = 0;
     m_ThreadInfoArray[i].ActiveFlagLock     = 0;
 
-    m_MultipleMethod[i]                     = 0;
-    m_MultipleData[i]                       = 0;
-
     m_SpawnedThreadActiveFlag[i]            = 0;
     m_SpawnedThreadActiveFlagLock[i]        = 0;
     m_SpawnedThreadInfoArray[i].ThreadID    = i;
@@ -166,7 +164,6 @@ MultiThreader::MultiThreader()
 
   m_SingleMethod = 0;
   m_SingleData = 0;
-  MultiThreader::SetGlobalMaximumNumberOfThreads(ITK_MAX_THREADS);
   m_NumberOfThreads = this->GetGlobalDefaultNumberOfThreads();
 }
 
@@ -179,24 +176,6 @@ void MultiThreader::SetSingleMethod(ThreadFunctionType f, void *data)
 {
   m_SingleMethod = f;
   m_SingleData   = data;
-}
-
-// Set one of the user defined methods that will be run on NumberOfThreads
-// threads when MultipleMethodExecute is called. This method should be
-// called with index = 0, 1, ..,  NumberOfThreads-1 to set up all the
-// required user defined methods
-void MultiThreader::SetMultipleMethod(ThreadIdType index, ThreadFunctionType f, void *data)
-{
-  // You can only set the method for 0 through NumberOfThreads-1
-  if ( index >= m_NumberOfThreads )
-    {
-    itkExceptionMacro(<< "Can't set method " << index << " with a thread count of " << m_NumberOfThreads);
-    }
-  else
-    {
-    m_MultipleMethod[index] = f;
-    m_MultipleData[index]   = data;
-    }
 }
 
 // Execute the method set as the SingleMethod on NumberOfThreads threads.
@@ -212,10 +191,41 @@ void MultiThreader::SingleMethodExecute()
   m_NumberOfThreads = std::min( m_GlobalMaximumNumberOfThreads, m_NumberOfThreads );
   std::cout << "SingleMethodExecute MultiThreader Global default: " << this->GetGlobalDefaultNumberOfThreads() << " GlobalMax: " << m_GlobalMaximumNumberOfThreads << " # threads: " << m_NumberOfThreads << std::endl;
 
-#if (_OPENMP >= 200805 )
-  #warning need to add support for checking the nesting level
-#endif
+ //
+  // Enable nested parallel regions
+  //
+  if ( !omp_get_nested() )
+    {
+// The OpenMP 2.5 spec is unclear of the omp_get_nested binding
+// thread set. In one location it's the current thread, in another
+// it says it is implementation defined. It'll have to do.
 
+#if !(_OPENMP >= 200805 )
+    // OpenMP 3.0 explicitly specifies that omp_set_nested works in
+    // nexted parallel regions or tasks, where as for 2.5 its
+    // undefined.
+    if ( omp_in_parallel() )
+      {
+      itkWarningMacro( << "omp_set_nested() was not set in outter thread team. "
+                       << "Effect of setting omp_set_nested() from within parallel "
+                       << "region is implementation defined." );
+      }
+#endif
+      omp_set_nested(1);
+
+
+      // For implementations which don't support nested parallelism
+      // the following value will remain false.
+      if ( !omp_get_nested() )
+        {
+        itkExceptionMacro( << "Failure to set omp_get_nested when nexted "
+                           << "parallel regions are required." );
+        }
+    }
+
+#if (_OPENMP >= 200805 )
+#warning need to add support for checking the nesting level
+#endif
 
   // Initialize the m_ThreadInforArray
   //
@@ -248,7 +258,7 @@ void MultiThreader::SingleMethodExecute()
 
 
 #pragma omp parallel                            \
-  num_threads(this->m_NumberOfThreads)          \
+  num_threads(NThreads)          \
   reduction(|:exceptionOccurred)               \
   default( shared )
   {
@@ -257,7 +267,7 @@ void MultiThreader::SingleMethodExecute()
     {
     if ( omp_get_num_threads() != NThreads )
       {
-      itkExceptionMacro( "Failed to spawn the required number of threads\n"
+      itkWarningMacro( "Failed to spawn the required number of threads\n"
                          << " Requested " << this->m_NumberOfThreads
                          << " but only got " << omp_get_num_threads() );
       }

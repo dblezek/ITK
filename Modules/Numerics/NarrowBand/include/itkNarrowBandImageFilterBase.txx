@@ -142,14 +142,18 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
   IdentifierType iter = 0;
   while ( !( this->ThreadedHalt(arg) ) )
     {
-    if ( threadId == 0 )
+
+
+      /*    if ( threadId == 0 )
       {
+      */
+#pragma omp single
       this->InitializeIteration(); // An optional method for precalculating
                                    // global values, or otherwise setting up
                                    // for the next iteration
-      }
+      // }
 
-    this->WaitForAll();
+      // this->WaitForAll();
 
     //Update region to process for current thread
     // Execute the actual method with appropriate output region
@@ -167,17 +171,21 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
 
     str->ValidTimeStepList[threadId] = true;
 
-    this->WaitForAll();
+#pragma omp barrier
+    // this->WaitForAll();
 
     //Calculate the time step
     //Check how is done in itkParallell
+    /*
     if ( threadId == 0 )
       {
+    */
+#pragma omp single
       str->TimeStep = this->ResolveTimeStep(str->TimeStepList,
                                             str->ValidTimeStepList );
-      }
+      // }
 
-    this->WaitForAll();
+      // this->WaitForAll();
 
     //Threaded Apply Update
     this->ThreadedApplyUpdate(str->TimeStep, splitRegion, threadId);
@@ -185,11 +193,12 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
     //Reset ValidTimeStepList
     str->ValidTimeStepList[threadId] = false;
 
-    this->WaitForAll();
+    // this->WaitForAll();
 
     //Do this. Problems accesing data members.
     ++iter;
-    if ( threadId == 0 )
+#pragma omp master
+    // if ( threadId == 0 )
       {
       ++m_Step;
       this->SetElapsedIterations (iter);
@@ -208,7 +217,8 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
         throw e;
         }
       }
-    this->WaitForAll();
+#pragma omp barrier
+      // this->WaitForAll();
     }
 }
 
