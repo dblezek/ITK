@@ -163,7 +163,8 @@ ImageToHistogramFilter< TImage >
     this->ThreadedComputeMinimumAndMaximum( inputRegionForThread, threadId, progress );
 
     // wait for the other threads to complete their part
-    m_Barrier->Wait();
+#pragma omp barrier
+    // m_Barrier->Wait();
 
     // a non multithreaded part
     if( threadId == 0 )
@@ -185,7 +186,8 @@ ImageToHistogramFilter< TImage >
       }
 
     // wait for all the threads to complete
-    m_Barrier->Wait();
+#pragma omp barrier
+    // m_Barrier->Wait();
 
     // and get the values computed in the main thread
     min = m_Minimums[0];

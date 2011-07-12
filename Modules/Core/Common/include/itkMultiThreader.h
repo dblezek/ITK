@@ -72,11 +72,16 @@ public:
 
   /** Set/Get the maximum number of threads to use when multithreading.  It
    * will be clamped to the range [ 1, ITK_MAX_THREADS ] because several arrays
-   * are already statically allocated using the ITK_MAX_THREADS number.
+   * are already statically allocated using the number.
    * Therefore the caller of this method should check that the requested number
    * of threads was accepted. */
   static void SetGlobalMaximumNumberOfThreads(ThreadIdType val);
 
+  /** This function returns the maximum number of threads that can
+   * execute concurrently in a single parallel region. The return value
+   * is equal to the maximum value that can be returned by the
+   * omp_get_num_threads() function.
+   */
   static ThreadIdType  GetGlobalMaximumNumberOfThreads();
 
   /** Set/Get the value which is used to initialize the NumberOfThreads in the

@@ -195,7 +195,8 @@ BinaryImageToLabelMapFilter< TInputImage, TOutputImage >
   this->m_NumberOfLabels[threadId] = nbOfLabels;
 
   // wait for the other threads to complete that part
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   // compute the total number of labels
   nbOfLabels = 0;

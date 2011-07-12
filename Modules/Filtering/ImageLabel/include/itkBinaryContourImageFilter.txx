@@ -239,7 +239,8 @@ BinaryContourImageFilter< TInputImage, TOutputImage >
     }
 
   // wait for the other threads to complete that part
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   // now process the map and make appropriate entries in an equivalence table
   SizeValueType pixelcount = output->GetRequestedRegion().GetNumberOfPixels();

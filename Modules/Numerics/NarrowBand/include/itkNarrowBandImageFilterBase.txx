@@ -97,7 +97,9 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
   this->GetMultiThreader()->SetSingleMethod(this->IterateThreaderCallback, &str);
 
   // It is this method that will results in the creation of the threads
+  std::cout << "-->>>> NarrowBandImageFilterBase starting multithreader" << std::endl;
   this->GetMultiThreader()->SingleMethodExecute ();
+  std::cout << "<<<<-- NarrowBandImageFilterBase completed multithreader" << std::endl;
 
   if ( !this->GetManualReinitialization() )
     {
@@ -209,7 +211,7 @@ NarrowBandImageFilterBase< TInputImage, TOutputImage >
       if ( this->GetAbortGenerateData() )
         {
         this->InvokeEvent( IterationEvent() );
-        this->WaitForAll();
+        // this->WaitForAll();
         this->ResetPipeline();
         ProcessAborted e(__FILE__, __LINE__);
         e.SetDescription("Process aborted.");

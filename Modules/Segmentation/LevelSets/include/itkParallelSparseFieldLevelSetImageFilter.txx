@@ -1190,7 +1190,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
       str->Filter->m_OutputImageTemp->SetRegions( str->Filter->m_OutputImage->GetRequestedRegion() );
       str->Filter->m_OutputImageTemp->Allocate();
       }
-    str->Filter->WaitForAll();
+#pragma omp barrier
+    // str->Filter->WaitForAll();
 
     // Data allocation performed serially.
     for ( i = 0; i < str->Filter->m_NumOfThreads; i++ )
@@ -1199,7 +1200,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
         {
         str->Filter->ThreadedAllocateData   (ThreadId);
         }
-      str->Filter->WaitForAll();
+#pragma omp barrier
+      // str->Filter->WaitForAll();
       }
 
     // Data initialization performed in parallel.
@@ -1208,7 +1210,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
                                                 str->Filter->m_Data[ThreadId].ThreadRegion);
     str->Filter->ThreadedInitializeData(ThreadId,
                                         str->Filter->m_Data[ThreadId].ThreadRegion);
-    str->Filter->WaitForAll();
+#pragma omp barrier
+    // str->Filter->WaitForAll();
 
     if ( ThreadId == 0 )
       {
@@ -1222,7 +1225,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
       //
       str->Filter->GraftOutput(str->Filter->m_OutputImage);
       }
-    str->Filter->WaitForAll();
+#pragma omp barrier
+    // str->Filter->WaitForAll();
     str->Filter->m_IsInitialized = true;
     }
 
@@ -1235,7 +1239,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
     str->Filter->m_Data[ThreadId].TimeStep =
       str->Filter->ThreadedCalculateChange(ThreadId);
 
-    str->Filter->WaitForAll();
+#pragma omp barrier
+    // str->Filter->WaitForAll();
 
     // Handle AbortGenerateData()
     if ( str->Filter->m_NumOfThreads == 1 || ThreadId == 0 )
@@ -1325,7 +1330,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
         }
       }
 
-    str->Filter->WaitForAll();
+#pragma omp barrier
+    // str->Filter->WaitForAll();
 
     // The active layer is too small => stop iterating
     if ( str->Filter->m_Stop == true )
@@ -1338,23 +1344,27 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
 
     // We only need to wait for neighbors because ThreadedCalculateChange
     // requires information only from the neighbors.
-    str->Filter->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+    // str->Filter->SignalNeighborsAndWait(ThreadId);
 
     if ( str->Filter->GetElapsedIterations()
          % LOAD_BALANCE_ITERATION_FREQUENCY == 0 )
       {
-      str->Filter->WaitForAll();
+#pragma omp barrier
+        // str->Filter->WaitForAll();
       // change boundaries if needed
       if ( ThreadId == 0 )
         {
         str->Filter->CheckLoadBalance();
         }
-      str->Filter->WaitForAll();
+#pragma omp barrier
+      // str->Filter->WaitForAll();
 
       if ( str->Filter->m_BoundaryChanged == true )
         {
         str->Filter->ThreadedLoadBalance (ThreadId);
-        str->Filter->WaitForAll();
+#pragma omp barrier
+        // str->Filter->WaitForAll();
         }
       }
     }
@@ -1494,14 +1504,16 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
   // We need to update histogram information (because some pixels are LEAVING
   // layer-0 (the active layer)
 
-  this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+  // this->SignalNeighborsAndWait(ThreadId);
 
   // Process status lists and update value for first inside/outside layers
 
   this->ThreadedProcessStatusList(0, 1, 2, 1, 1, 0, ThreadId);
   this->ThreadedProcessStatusList(0, 1, 1, 2, 0, 0, ThreadId);
 
-  this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+  // this->SignalNeighborsAndWait(ThreadId);
 
   // Update first layer value, process first layer
   this->ThreadedProcessFirstLayerStatusLists(1, 0, 3, 1, 1, ThreadId);
@@ -1510,7 +1522,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
   // We need to update histogram information (because some pixels are ENTERING
   // layer-0
 
-  this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+  // this->SignalNeighborsAndWait(ThreadId);
 
   StatusType    up_to = 1,   up_search = 5;
   StatusType    down_to = 2, down_search = 6;
@@ -1524,7 +1537,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
     this->ThreadedProcessStatusList(j, k, down_to, down_search, 0,
                                     ( up_search - 1 ) / 2, ThreadId);
 
-    this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+    // this->SignalNeighborsAndWait(ThreadId);
 
     up_to += 2;
     down_to += 2;
@@ -1544,7 +1558,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
   this->ThreadedProcessStatusList(j, k, down_to, m_StatusNull, 0,
                                   ( up_search - 1 ) / 2, ThreadId);
 
-  this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+  // this->SignalNeighborsAndWait(ThreadId);
 
   this->ThreadedProcessOutsideList(k, ( 2 * m_NumberOfLayers + 1 ) - 2, 1,
                                    ( up_search + 1 ) / 2, ThreadId);
@@ -1553,7 +1568,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
 
   if ( m_OutputImage->GetImageDimension() < 3 )
     {
-    this->SignalNeighborsAndWait(ThreadId);
+#pragma omp barrier
+      // this->SignalNeighborsAndWait(ThreadId);
     }
 
   // A synchronize is NOT required here because in 3D case we have at least 7
@@ -1566,7 +1582,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
   this->ThreadedPropagateLayerValues(0, 1, 3, 1, ThreadId); // first inside
   this->ThreadedPropagateLayerValues(0, 2, 4, 0, ThreadId); // first outside
 
-  this->SignalNeighborsAndWait (ThreadId);
+#pragma omp barrier
+  // this->SignalNeighborsAndWait (ThreadId);
 
   // Update the rest of the layer values
   unsigned int N = ( 2 * static_cast< unsigned int >( m_NumberOfLayers ) + 1 ) - 2;
@@ -1576,7 +1593,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
     j = i + 1;
     this->ThreadedPropagateLayerValues(i, i + 2,   i + 4,   1, ThreadId);
     this->ThreadedPropagateLayerValues(j, j + 2,   j + 4,   0, ThreadId);
-    this->SignalNeighborsAndWait (ThreadId);
+#pragma omp barrier
+    // this->SignalNeighborsAndWait (ThreadId);
     }
 }
 
@@ -2450,7 +2468,8 @@ ParallelSparseFieldLevelSetImageFilter< TInputImage, TOutputImage >
 
   ////////////////////////////////////////////////////
   // 2.
-  this->WaitForAll();
+#pragma omp barrier
+  // this->WaitForAll();
 
   ////////////////////////////////////////////////////
   // 3.

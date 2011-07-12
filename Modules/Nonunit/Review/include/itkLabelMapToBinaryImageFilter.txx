@@ -132,7 +132,8 @@ LabelMapToBinaryImageFilter< TInputImage, TOutputImage >
     }
 
   // wait for the other threads to complete that part
-  this->m_Barrier->Wait();
+#pragma omp barrier
+  // this->m_Barrier->Wait();
 
   // and delegate to the superclass implementation to use the thread support for
   // the label objects

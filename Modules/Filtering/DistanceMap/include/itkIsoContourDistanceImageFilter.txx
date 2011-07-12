@@ -188,7 +188,8 @@ IsoContourDistanceImageFilter< TInputImage, TOutputImage >
     }
 
   // Wait for all threads to be done initializing output
-  this->m_Barrier->Wait();
+#pragma omp barrier
+  // this->m_Barrier->Wait();
 
   //Iterate over split region or split band as convinient.
   if ( !m_NarrowBanding )

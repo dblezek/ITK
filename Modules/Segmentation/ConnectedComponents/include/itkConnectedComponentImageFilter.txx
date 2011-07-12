@@ -203,7 +203,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
   m_NumberOfLabels[threadId] = nbOfLabels;
 
   // wait for the other threads to complete that part
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   // compute the total number of labels
   nbOfLabels = 0;
@@ -236,7 +237,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
     }
 
   // wait for the other threads to complete that part
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   // now process the map and make appropriate entries in an equivalence
   // table
@@ -285,7 +287,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
     }
 
   // wait for the other threads to complete that part
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   while ( m_FirstLineIdToJoin.size() != 0 )
     {
@@ -318,7 +321,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
         }
       }
 
-    this->Wait();
+#pragma omp barrier
+    // this->Wait();
 
     if ( threadId == 0 )
       {
@@ -331,7 +335,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
       m_FirstLineIdToJoin = newFirstLineIdToJoin;
       }
 
-    this->Wait();
+#pragma omp barrier
+    // this->Wait();
     }
 
   if ( threadId == 0 )
@@ -339,7 +344,8 @@ ConnectedComponentImageFilter< TInputImage, TOutputImage, TMaskImage >
     m_ObjectCount = CreateConsecutive();
     }
 
-  this->Wait();
+#pragma omp barrier
+  // this->Wait();
 
   // check for overflow exception here
   if ( m_ObjectCount > static_cast< SizeValueType >(
