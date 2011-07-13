@@ -253,7 +253,7 @@ void MultiThreader::SingleMethodExecute()
   //
   // Thanks to Hannu Helminen for suggestions on how to catch
   // exceptions thrown by threads.
-  int         exceptionOccurred = false;
+  bool         exceptionOccurred = false;
   std::string exceptionDetails;
 
 
@@ -267,7 +267,7 @@ void MultiThreader::SingleMethodExecute()
     {
     if ( omp_get_num_threads() != NThreads )
       {
-      itkWarningMacro( "Failed to spawn the required number of threads\n"
+      itkExceptionMacro( "Failed to spawn the required number of threads\n"
                          << " Requested " << this->m_NumberOfThreads
                          << " but only got " << omp_get_num_threads() );
       }
